@@ -1,0 +1,23 @@
+# Node
+node_modules/
+dist/
+build/
+.next/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+env/
+.pytest_cache/
+
+# Env
+.env
+.env.local
+
+# Logs
+*.log
+
+# Docker
+postgres_data/
+postgres_data_dev/
