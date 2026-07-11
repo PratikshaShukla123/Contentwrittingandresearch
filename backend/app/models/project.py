@@ -16,3 +16,4 @@ class Project(Base):
     owner = relationship("User", back_populates="projects")
     grants = relationship("Grant", back_populates="project")
     proposals = relationship("Proposal", back_populates="project")
+    chat_messages = relationship("ChatMessage", back_populates="project", cascade="all, delete-orphan")
