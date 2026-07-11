@@ -2,25 +2,41 @@
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { 
-  Send, 
-  Bot, 
-  User, 
-  Save, 
-  Download, 
+import {
+  Send,
+  Bot,
+  User,
+  Save,
+  Download,
   FileText,
   Sparkles,
-  Paperclip
+  Paperclip,
+  Wand2
 } from "lucide-react";
-import { sendChatMessage, getChatHistory, ChatMessage } from "@/lib/api";
+import { sendChatMessage, getChatHistory, ChatMessage, generateProposalDocument } from "@/lib/api";
 import { useState, useEffect } from "react";
 
 export default function WorkspacePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "ai", content: "Hi! I'm your AI Grant Writing assistant. I've drafted a preliminary outline based on your research topic. What would you like to tweak?" }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+      { role: "ai", content: "Hi! I'm your AI Grant Writing assistant. I've drafted a preliminary outline based on your research topic. What would you like to tweak?" }
+    ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const [proposal, setProposal] = useState({
+    title: "Harnessing AI for Climate Change Mitigation",
+    summary: "Climate change presents an existential threat to global ecosystems and economies. Traditional mitigation strategies have proven insufficient given the scale of the crisis. Recent advancements in artificial intelligence offer unprecedented opportunities to optimize energy grids, accelerate materials discovery for carbon capture, and model complex climate dynamics with high fidelity.",
+    objectives: [
+      "Develop a novel Transformer-based model for long-term climate prediction.",
+      "Optimize smart grid energy distribution using deep reinforcement learning.",
+      "Open-source all datasets and models for community collaboration."
+    ],
+    methodology: "We will employ state-of-the-art machine learning architectures, specifically focusing on spatial-temporal Graph Neural Networks (GNNs) combined with attention mechanisms (Transformers). This hybrid approach enables the model to capture both local spatial dependencies in climate data and long-term temporal trends. The models will be trained on the coupled model intercomparison project (CMIP6) data archive, ensuring robust validation against established physical models."
+  });
+
   const PROJECT_ID = 1;
 
   useEffect(() => {
@@ -45,21 +61,26 @@ export default function WorkspacePage() {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
-    
+
     const userMessage = { role: "user" as const, content: input.trim() };
     const newMessages = [...messages, userMessage];
-    
+    if (!input.trim() || isLoading) return;
+
+    const userMessage = { role: "user" as const, content: input.trim() };
+    const newMessages = [...messages, userMessage];
+
+    setMessages(newMessages);
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
-    
+
     try {
       // Send chat message to backend
       const response = await sendChatMessage({
         messages: newMessages,
         project_id: PROJECT_ID,
       });
-      
+
       setMessages(prev => [...prev, { role: "ai", content: response.content }]);
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -69,14 +90,33 @@ export default function WorkspacePage() {
     }
   };
 
+  const handleGenerate = async () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    try {
+      const generated = await generateProposalDocument(PROJECT_ID);
+
+      setProposal({
+        title: generated.title || "Generated Proposal",
+        summary: generated.sections?.summary || "",
+        objectives: generated.sections?.objectives || "",
+        methodology: generated.sections?.methodology || ""
+      });
+    } catch (error) {
+      console.error("Failed to generate proposal:", error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="flex h-screen w-full bg-zinc-50 dark:bg-black font-sans overflow-hidden">
       <Sidebar />
       <div className="flex-1 flex flex-col h-full min-w-0">
         <Header />
-        
+
         <main className="flex-1 flex flex-col md:flex-row overflow-hidden bg-white dark:bg-zinc-950">
-          
+
           {/* Left Pane: Document Preview / Editor */}
           <div className="flex-1 flex flex-col border-r border-zinc-200 dark:border-zinc-800">
             {/* Toolbar */}
@@ -86,6 +126,15 @@ export default function WorkspacePage() {
                 AI in Climate Change Mitigation.pdf
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGenerate}
+                  disabled={isGenerating}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                >
+                  <Wand2 className="w-4 h-4" />
+                  {isGenerating ? "Generating..." : "Generate Proposal"}
+                </button>
+                <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
                 <button className="p-2 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
                   <Save className="w-4 h-4" />
                 </button>
@@ -94,45 +143,41 @@ export default function WorkspacePage() {
                 </button>
               </div>
             </div>
-            
+
             {/* Editor Area */}
             <div className="flex-1 overflow-y-auto p-8 lg:p-12">
               <div className="max-w-3xl mx-auto space-y-8">
                 <div>
                   <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-4 focus:outline-none" contentEditable suppressContentEditableWarning>
-                    Harnessing AI for Climate Change Mitigation
+                    {proposal.title}
                   </h1>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">Last edited by AI Agent • Just now</p>
                 </div>
-                
+
                 <section>
                   <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-3">1. Background & Significance</h2>
                   <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
-                    Climate change presents an existential threat to global ecosystems and economies. 
-                    Traditional mitigation strategies have proven insufficient given the scale of the crisis. 
-                    Recent advancements in artificial intelligence offer unprecedented opportunities to optimize 
-                    energy grids, accelerate materials discovery for carbon capture, and model complex climate 
-                    dynamics with high fidelity.
+                    {proposal.summary}
                   </p>
                 </section>
 
                 <section>
                   <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-3">2. Objectives</h2>
-                  <ul className="list-disc list-inside text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg space-y-2 focus:outline-none" contentEditable suppressContentEditableWarning>
-                    <li>Develop a novel Transformer-based model for long-term climate prediction.</li>
-                    <li>Optimize smart grid energy distribution using deep reinforcement learning.</li>
-                    <li>Open-source all datasets and models for community collaboration.</li>
-                  </ul>
+                  <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
+                    {Array.isArray(proposal.objectives) ? (
+                      <ul className="list-disc list-inside space-y-2">
+                        {proposal.objectives.map((obj, i) => <li key={i}>{obj}</li>)}
+                      </ul>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{proposal.objectives}</p>
+                    )}
+                  </div>
                 </section>
-                
+
                 <section>
                   <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-3">3. Methodology</h2>
                   <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
-                    We will employ state-of-the-art machine learning architectures, specifically focusing on 
-                    spatial-temporal Graph Neural Networks (GNNs) combined with attention mechanisms (Transformers). 
-                    This hybrid approach enables the model to capture both local spatial dependencies in climate data 
-                    and long-term temporal trends. The models will be trained on the coupled model intercomparison 
-                    project (CMIP6) data archive, ensuring robust validation against established physical models.
+                    {proposal.methodology}
                   </p>
                 </section>
               </div>
@@ -153,22 +198,32 @@ export default function WorkspacePage() {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    msg.role === "user" 
-                      ? "bg-indigo-600 text-white" 
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === "user"
+                      ? "bg-indigo-600 text-white"
                       : "bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400"
-                  }`}>
+                    }`}>
                     {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
-                  <div className={`px-4 py-3 rounded-2xl max-w-[80%] ${
-                    msg.role === "user"
+                  <div className={`px-4 py-3 rounded-2xl max-w-[80%] ${msg.role === "user"
                       ? "bg-indigo-600 text-white rounded-tr-none"
                       : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-tl-none shadow-sm"
-                  }`}>
+                    }`}>
                     <p className="text-sm leading-relaxed">{msg.content}</p>
                   </div>
                 </div>
               ))}
+              {isLoading && (
+                <div className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                  <div className="px-4 py-3 rounded-2xl max-w-[80%] bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-tl-none shadow-sm flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></span>
+                    <span className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></span>
+                  </div>
+                </div>
+              )}
               {isLoading && (
                 <div className="flex gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400">
@@ -196,7 +251,7 @@ export default function WorkspacePage() {
                   placeholder="Ask the AI to refine the draft..."
                   className="w-full pl-10 pr-12 py-3 bg-zinc-100 dark:bg-zinc-900 border border-transparent focus:border-indigo-500 focus:bg-white dark:focus:bg-zinc-800 focus:ring-1 focus:ring-indigo-500 rounded-xl text-sm text-zinc-900 dark:text-zinc-100 transition-all outline-none"
                 />
-                <button 
+                <button
                   type="submit"
                   disabled={!input.trim()}
                   className="absolute right-2 p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -209,7 +264,7 @@ export default function WorkspacePage() {
               </div>
             </div>
           </div>
-          
+
         </main>
       </div>
     </div>
