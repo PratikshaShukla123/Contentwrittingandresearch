@@ -28,7 +28,7 @@ def estimate_cost(input_text: str, output_text: str, model_name: str = "gpt-4o")
     logger.info(f"LLM Transaction: {input_tokens} prompt tokens, {output_tokens} completion tokens. Estimated cost: ${cost:.5f}")
     return cost
 
-def get_llm(model_name: str = "llama-3.1-8b-instant", temperature: float = 0.2):
+def get_llm(model_name: str = "llama3-8b-8192", temperature: float = 0.2):
     """
     Returns an instance of the configured LLM.
     Used by all LangGraph nodes for consistent access and configuration.
