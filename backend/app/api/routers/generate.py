@@ -26,16 +26,19 @@ async def generate_proposal(project_id: int, db: SessionDep):
         
         lc_messages = []
         
-        system_prompt = """You are an expert AI grant writing assistant. 
-Based on the following conversation history, generate a comprehensive, structured grant proposal.
+        system_prompt = """You are an elite, professional grant writing consultant and domain expert. 
+Based on the conversation history, generate an exceptionally detailed, rigorous, and academic-grade grant proposal. 
+
+For each section, expand thoroughly, providing specific details, technical terms, and concrete explanations. Avoid generic summaries or high-level generalizations. Instead, make the proposal feel comprehensive, authoritative, and implementation-ready.
+
 You MUST output ONLY a valid JSON object matching the following structure exactly (no markdown formatting, no code blocks, just raw JSON):
 
 {
-  "title": "A compelling title for the proposal",
+  "title": "A highly professional, academic, and compelling title that reflects the technical depth of the project.",
   "sections": {
-    "summary": "A concise summary of the project.",
-    "objectives": "The main research objectives, bulleted or paragraphed.",
-    "methodology": "The methodology and approach to be used."
+    "summary": "An extensive executive summary (300-500 words). Clearly define: 1) The core problem or research gap being addressed. 2) The significance and critical nature of this problem. 3) The novel, innovative solution or technology proposed. 4) The expected societal, scientific, or commercial impact.",
+    "objectives": "A detailed, numbered list of primary and secondary research objectives. Each objective must be specific, measurable, achievable, realistic, and time-bound (SMART). Under each objective, explain the exact scientific or technical milestone and the quantitative metrics used to verify success.",
+    "methodology": "A deep, comprehensive technical breakdown (500-800 words) of the methodology. This must detail: 1) The step-by-step technical approach, phases of execution, and workflows. 2) The specific tools, libraries, hardware, software architectures, algorithms, or mathematical models utilized. 3) The datasets to be acquired, preprocessed, and used. 4) The validation, testing, and evaluation metrics. 5) A risk mitigation plan addressing potential technical challenges and how they will be circumvented."
   }
 }"""
         lc_messages.append(SystemMessage(content=system_prompt))
@@ -51,15 +54,15 @@ You MUST output ONLY a valid JSON object matching the following structure exactl
                 
         response = await llm.ainvoke(lc_messages)
         
-        content = str(response.content).strip()
-        # Clean up any potential markdown code blocks
-        if content.startswith("```json"):
-            content = content[7:]
-        if content.startswith("```"):
-            content = content[3:]
-        if content.endswith("```"):
-            content = content[:-3]
-        content = content.strip()
+        raw_content = str(response.content).strip()
+        
+        # Robustly extract JSON block by finding the first '{' and last '}'
+        start_idx = raw_content.find('{')
+        end_idx = raw_content.rfind('}')
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            content = raw_content[start_idx:end_idx + 1]
+        else:
+            content = raw_content
             
         parsed_proposal = json.loads(content, strict=False)
         return parsed_proposal

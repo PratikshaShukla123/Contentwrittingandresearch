@@ -123,3 +123,9 @@ User message: {last_message}"""
 async def get_chat_history(project_id: int, db: SessionDep):
     messages = db.query(DBChatMessage).filter(DBChatMessage.project_id == project_id).order_by(DBChatMessage.created_at.asc()).all()
     return messages
+
+@router.delete("/{project_id}")
+async def clear_chat_history(project_id: int, db: SessionDep):
+    db.query(DBChatMessage).filter(DBChatMessage.project_id == project_id).delete()
+    db.commit()
+    return {"message": "Chat history cleared successfully"}

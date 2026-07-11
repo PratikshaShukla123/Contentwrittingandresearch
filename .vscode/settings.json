@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "e:/Content Writting and research/ai-grant-writing/backend/venv/Scripts/python.exe",
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/Scripts/python.exe",
     "python.analysis.extraPaths": [
         "${workspaceFolder}/backend"
     ]
