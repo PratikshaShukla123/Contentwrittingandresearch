@@ -18,8 +18,9 @@ async def generate_proposal(project_id: int, db: SessionDep):
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        # Get chat history
+        # Get chat history (limit to last 10 messages to avoid token rate limits)
         messages = db.query(DBChatMessage).filter(DBChatMessage.project_id == project_id).order_by(DBChatMessage.created_at.asc()).all()
+        messages = messages[-10:]
         
         llm = get_llm(temperature=0.4)
         
@@ -60,7 +61,7 @@ You MUST output ONLY a valid JSON object matching the following structure exactl
             content = content[:-3]
         content = content.strip()
             
-        parsed_proposal = json.loads(content)
+        parsed_proposal = json.loads(content, strict=False)
         return parsed_proposal
         
     except json.JSONDecodeError as e:
@@ -68,4 +69,7 @@ You MUST output ONLY a valid JSON object matching the following structure exactl
         raise HTTPException(status_code=500, detail="AI returned invalid format. Please try again.")
     except Exception as e:
         logger.error(f"Generation error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to generate proposal")
+        err_msg = str(e).lower()
+        if "rate_limit" in err_msg or "rate limit" in err_msg or "limit exceeded" in err_msg or "413" in err_msg or "too large" in err_msg or "429" in err_msg:
+            raise HTTPException(status_code=429, detail="Groq API rate limit reached. Please wait a few seconds before retrying.")
+        raise HTTPException(status_code=500, detail=f"Failed to generate proposal: {str(e)}")

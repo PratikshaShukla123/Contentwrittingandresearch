@@ -90,7 +90,9 @@ User message: {last_message}"""
             lc_messages = []
             lc_messages.append(SystemMessage(content="You are an expert AI grant writing assistant. Help the user refine their proposal."))
             
-            for msg in request.messages:
+            # Limit history to avoid hitting rate limits
+            chat_history = request.messages[-10:] if len(request.messages) > 10 else request.messages
+            for msg in chat_history:
                 if msg.role == "user":
                     lc_messages.append(HumanMessage(content=msg.content))
                 else:
@@ -112,6 +114,9 @@ User message: {last_message}"""
         return ChatResponse(content=response_content)
     except Exception as e:
         logger.error(f"Chat error: {str(e)}")
+        err_msg = str(e).lower()
+        if "rate_limit" in err_msg or "rate limit" in err_msg or "limit exceeded" in err_msg or "413" in err_msg or "too large" in err_msg or "429" in err_msg:
+            raise HTTPException(status_code=429, detail="Groq API rate limit reached. Please wait a few seconds before retrying.")
         raise HTTPException(status_code=500, detail="Failed to process chat request")
 
 @router.get("/{project_id}", response_model=List[ChatMessageResponse])
