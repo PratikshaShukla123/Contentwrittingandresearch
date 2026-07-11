@@ -11,7 +11,8 @@ import {
   Plus,
   Trash2
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { createProposal } from "@/lib/api";
 
 export default function EditorPage() {
   const [budgetItems, setBudgetItems] = useState([
@@ -21,6 +22,45 @@ export default function EditorPage() {
     { id: 4, category: "Travel", description: "Conference Presentation", amount: 3000 },
     { id: 5, category: "Materials", description: "Cloud Storage & APIs", amount: 5000 },
   ]);
+
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveText, setSaveText] = useState("Save Draft");
+
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    setSaveText("Saving...");
+    
+    try {
+      const title = document.getElementById("proposal-title")?.innerText || "Untitled Proposal";
+      const summary = document.getElementById("proposal-summary")?.innerText || "";
+      const objectives = document.getElementById("proposal-objectives")?.innerText || "";
+      const methodology = document.getElementById("proposal-methodology")?.innerText || "";
+      
+      const content = {
+        title,
+        sections: {
+          summary,
+          objectives,
+          methodology,
+          budgetItems
+        }
+      };
+      
+      await createProposal({
+        project_id: 1, // Using default project ID
+        status: "Drafting",
+        content
+      });
+      
+      setSaveText("Saved!");
+    } catch (error) {
+      console.error("Failed to save proposal:", error);
+      setSaveText("Error");
+    } finally {
+      setIsSaving(false);
+      setTimeout(() => setSaveText("Save Draft"), 2000);
+    }
+  }, [budgetItems]);
 
   const totalAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
 
@@ -43,10 +83,17 @@ export default function EditorPage() {
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
-                  <Save className="w-4 h-4" /> Save Draft
+                <button 
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-zinc-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" /> {saveText}
                 </button>
-                <button className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-sm">
+                <button 
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg transition-colors shadow-sm"
+                >
                   <Download className="w-4 h-4" /> Export PDF
                 </button>
               </div>
@@ -56,7 +103,7 @@ export default function EditorPage() {
             <div className="flex-1 overflow-y-auto p-10 lg:p-16">
               <div className="max-w-3xl mx-auto space-y-8">
                 <div className="group relative">
-                  <h1 className="text-4xl font-extrabold text-zinc-900 dark:text-zinc-50 mb-2 focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <h1 id="proposal-title" className="text-4xl font-extrabold text-zinc-900 dark:text-zinc-50 mb-2 focus:outline-none" contentEditable suppressContentEditableWarning>
                     AI-Driven Climate Change Mitigation
                   </h1>
                   <p className="text-zinc-500 dark:text-zinc-400 focus:outline-none" contentEditable suppressContentEditableWarning>
@@ -70,7 +117,7 @@ export default function EditorPage() {
                   <h2 className="text-2xl font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none" contentEditable suppressContentEditableWarning>
                     1. Project Summary
                   </h2>
-                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <p id="proposal-summary" className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
                     This project seeks to integrate large-scale climate data with advanced Graph Neural Networks (GNNs) to improve long-term weather forecasting and carbon emission tracking. By providing a high-resolution, AI-driven model, policymakers and environmental agencies can make data-driven decisions to optimize resource allocation and enforce mitigation strategies effectively.
                   </p>
                 </section>
@@ -79,7 +126,7 @@ export default function EditorPage() {
                   <h2 className="text-2xl font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none" contentEditable suppressContentEditableWarning>
                     2. Research Objectives
                   </h2>
-                  <ul className="list-disc list-outside ml-6 text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg space-y-3 focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <ul id="proposal-objectives" className="list-disc list-outside ml-6 text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg space-y-3 focus:outline-none" contentEditable suppressContentEditableWarning>
                     <li>To design and train a spatial-temporal Transformer model on the CMIP6 dataset.</li>
                     <li>To reduce the computational overhead of traditional climate simulations by 40%.</li>
                     <li>To deploy an open-source dashboard for real-time inference and analysis by stakeholders.</li>
@@ -90,7 +137,7 @@ export default function EditorPage() {
                   <h2 className="text-2xl font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-none" contentEditable suppressContentEditableWarning>
                     3. Methodology & Approach
                   </h2>
-                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <p id="proposal-methodology" className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
                     The core methodology relies on establishing a reliable data pipeline from satellite imagery and ground sensors into a unified vector representation. We will utilize a hybrid Transformer-GNN architecture, trained on 10 years of historical data. Validation will be performed using held-out datasets and hindcasting techniques to ensure the model captures rare, extreme weather events without overfitting.
                   </p>
                 </section>
@@ -139,7 +186,11 @@ export default function EditorPage() {
                         </div>
                         <div className="col-span-4 text-right font-medium text-sm text-zinc-700 dark:text-zinc-300 flex justify-end items-center gap-3">
                           ${item.amount.toLocaleString()}
-                          <button className="text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                          <button 
+                            onClick={() => setBudgetItems(budgetItems.filter(b => b.id !== item.id))}
+                            className="text-zinc-400 hover:text-red-500 transition-all p-1"
+                            title="Delete Item"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>

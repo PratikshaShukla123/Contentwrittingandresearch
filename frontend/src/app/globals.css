@@ -128,3 +128,11 @@
     @apply font-sans;
   }
 }
+@media print {
+  aside, header, .xl\:w-\[450px\] { display: none !important; }
+  main { overflow: visible !important; }
+  .flex-1 { overflow: visible !important; }
+  .border-r { border: none !important; }
+  .h-14 { display: none !important; }
+}
+

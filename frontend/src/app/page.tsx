@@ -1,3 +1,6 @@
+"use client";
+
+import Link from "next/link";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { 
@@ -10,8 +13,30 @@ import {
   Activity,
   Plus
 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { getProposalsByProject, ProposalResponse, createProject } from "@/lib/api";
 
 export default function DashboardPage() {
+  const [proposals, setProposals] = useState<ProposalResponse[]>([]);
+  
+  useEffect(() => {
+    async function loadProposals() {
+      try {
+        try {
+          const res = await getProposalsByProject(1);
+          setProposals(res);
+        } catch (e) {
+          // If not found, create default project
+          await createProject({ title: "Default Project" });
+          const res = await getProposalsByProject(1);
+          setProposals(res);
+        }
+      } catch (err) {
+        console.error("Failed to load proposals", err);
+      }
+    }
+    loadProposals();
+  }, []);
   return (
     <div className="flex h-screen w-full bg-zinc-50 dark:bg-black font-sans overflow-hidden">
       <Sidebar />
@@ -29,10 +54,10 @@ export default function DashboardPage() {
                 Here's what's happening with your grant proposals today.
               </p>
             </div>
-            <button className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all active:scale-95">
+            <Link href="/editor" className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 transition-all active:scale-95">
               <Plus className="w-4 h-4" />
               New Proposal
-            </button>
+            </Link>
           </div>
 
           {/* Stats Grid */}
@@ -82,30 +107,37 @@ export default function DashboardPage() {
             <div className="lg:col-span-2 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
               <div className="px-6 py-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
                 <h2 className="font-semibold text-lg text-zinc-900 dark:text-zinc-50">Recent Proposals</h2>
-                <button className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300">View all</button>
+                <Link href="/editor" className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300">View all</Link>
               </div>
-              <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {[
-                  { title: "AI in Climate Change Mitigation", status: "Review Node", statusColor: "text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400", time: "2 hours ago" },
-                  { title: "Quantum Computing for Drug Discovery", status: "Completed", statusColor: "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400", time: "1 day ago" },
-                  { title: "Neuroscience Data Processing", status: "Drafting", statusColor: "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400", time: "3 days ago" },
-                ].map((item, i) => (
-                  <li key={i} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer group">
-                    <div>
-                      <p className="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">{item.title}</p>
-                      <p className="text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-1 mt-1">
-                        <Clock className="w-3 h-3" /> {item.time}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${item.statusColor}`}>
-                        {item.status}
-                      </span>
-                      <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transform" />
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800">
+                {proposals.length === 0 ? (
+                  <div className="px-6 py-8 text-center text-sm text-zinc-500">
+                    No proposals found. Click "New Proposal" to create one.
+                  </div>
+                ) : (
+                  proposals.map((item, i) => {
+                    const statusColor = item.status === "Drafting" ? "text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400" : "text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400";
+                    return (
+                      <Link href="/editor" key={item.id || i} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer group">
+                        <div>
+                          <p className="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                            {item.content?.title || "Untitled Proposal"}
+                          </p>
+                          <p className="text-sm text-zinc-500 dark:text-zinc-400 flex items-center gap-1 mt-1">
+                            <Clock className="w-3 h-3" /> Version {item.version || 1}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${statusColor}`}>
+                            {item.status || "Drafting"}
+                          </span>
+                          <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transform" />
+                        </div>
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* Grants Feed */}
@@ -120,20 +152,20 @@ export default function DashboardPage() {
                   { title: "NIH Tech Innovation Grant", amount: "$2M", deadline: "Nov 01" },
                   { title: "DOE Clean Energy Initiative", amount: "$1.5M", deadline: "Dec 10" },
                 ].map((grant, i) => (
-                  <div key={i} className="group cursor-pointer">
+                  <Link href="/workspace" key={i} className="group cursor-pointer block">
                     <h3 className="font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-fuchsia-600 dark:group-hover:text-fuchsia-400 transition-colors line-clamp-1">{grant.title}</h3>
                     <div className="flex items-center gap-3 mt-1.5 text-sm">
                       <span className="font-semibold text-emerald-600 dark:text-emerald-400">{grant.amount}</span>
                       <span className="text-zinc-300 dark:text-zinc-700">•</span>
                       <span className="text-zinc-500 dark:text-zinc-400">Due {grant.deadline}</span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
               <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50">
-                <button className="w-full py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
+                <Link href="/workspace" className="w-full py-2 flex justify-center text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
                   View all matches
-                </button>
+                </Link>
               </div>
             </div>
           </div>

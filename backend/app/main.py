@@ -2,9 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routers import api_router
-from starlette_exporter import PrometheusMiddleware, handle_metrics
 from app.core.exceptions import global_exception_handler, ai_processing_exception_handler, AIProcessingError
 from app.core.logging import logger
+from app.db.base import Base
+from app.db.session import engine
 import time
 from fastapi import Request
 
@@ -26,9 +27,10 @@ if settings.BACKEND_CORS_ORIGINS:
 # Include routers
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Metrics
-app.add_middleware(PrometheusMiddleware)
-app.add_route("/metrics", handle_metrics)
+# Initialize database
+Base.metadata.create_all(bind=engine)
+
+
 
 # Exception Handlers
 app.add_exception_handler(Exception, global_exception_handler)

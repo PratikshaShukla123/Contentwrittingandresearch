@@ -6,7 +6,13 @@ langgraph
 langchain
 openai
 sqlalchemy
+langchain-groq
 
 prometheus-client
 starlette-exporter
 tiktoken
+
+# Testing
+pytest
+pytest-asyncio
+httpx
