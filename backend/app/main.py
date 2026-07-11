@@ -6,6 +6,8 @@ from app.core.exceptions import global_exception_handler, ai_processing_exceptio
 from app.core.logging import logger
 from app.db.base import Base
 from app.db.session import engine
+# Import all models to register them on Base.metadata
+from app.models import User, Project, Grant, Proposal, ChatMessage
 import time
 from fastapi import Request
 

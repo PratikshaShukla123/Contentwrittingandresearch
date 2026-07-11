@@ -11,6 +11,9 @@ langchain-groq
 prometheus-client
 starlette-exporter
 tiktoken
+PyJWT
+langchain-chroma
+langchain-openai
 
 # Testing
 pytest

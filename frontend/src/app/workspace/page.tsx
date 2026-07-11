@@ -19,9 +19,7 @@ import { useState, useEffect } from "react";
 export default function WorkspacePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { role: "ai", content: "Hi! I'm your AI Grant Writing assistant. I've drafted a preliminary outline based on your research topic. What would you like to tweak?" }
-  const [messages, setMessages] = useState<ChatMessage[]>([
-      { role: "ai", content: "Hi! I'm your AI Grant Writing assistant. I've drafted a preliminary outline based on your research topic. What would you like to tweak?" }
-    ]);
+  ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -64,12 +62,7 @@ export default function WorkspacePage() {
 
     const userMessage = { role: "user" as const, content: input.trim() };
     const newMessages = [...messages, userMessage];
-    if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: "user" as const, content: input.trim() };
-    const newMessages = [...messages, userMessage];
-
-    setMessages(newMessages);
     setMessages(newMessages);
     setInput("");
     setIsLoading(true);
@@ -100,7 +93,7 @@ export default function WorkspacePage() {
         title: generated.title || "Generated Proposal",
         summary: generated.sections?.summary || "",
         objectives: generated.sections?.objectives || "",
-        methodology: generated.sections?.methodology || ""
+        methodology: generated.sections?.methodology || "Unable to generate methodology"
       });
     } catch (error) {
       console.error("Failed to generate proposal:", error);
@@ -199,14 +192,14 @@ export default function WorkspacePage() {
               {messages.map((msg, idx) => (
                 <div key={idx} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === "user"
-                      ? "bg-indigo-600 text-white"
-                      : "bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-fuchsia-100 dark:bg-fuchsia-900/30 text-fuchsia-600 dark:text-fuchsia-400"
                     }`}>
                     {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
                   <div className={`px-4 py-3 rounded-2xl max-w-[80%] ${msg.role === "user"
-                      ? "bg-indigo-600 text-white rounded-tr-none"
-                      : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-tl-none shadow-sm"
+                    ? "bg-indigo-600 text-white rounded-tr-none"
+                    : "bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-tl-none shadow-sm"
                     }`}>
                     <p className="text-sm leading-relaxed">{msg.content}</p>
                   </div>
