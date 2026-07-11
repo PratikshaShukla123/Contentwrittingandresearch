@@ -75,6 +75,12 @@ export async function getChatHistory(projectId: number) {
   return fetchApi<ChatMessageResponse[]>(`/api/v1/chat/${projectId}`);
 }
 
+export async function clearChatHistory(projectId: number) {
+  return fetchApi<{ message: string }>(`/api/v1/chat/${projectId}`, {
+    method: 'DELETE',
+  });
+}
+
 export interface ProjectCreate {
   title: string;
   description?: string;

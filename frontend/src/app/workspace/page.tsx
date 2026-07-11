@@ -11,11 +11,33 @@ import {
   FileText,
   Sparkles,
   Paperclip,
-  Wand2
+  Wand2,
+  Trash2
 } from "lucide-react";
-import { sendChatMessage, getChatHistory, ChatMessage, generateProposalDocument } from "@/lib/api";
+import { sendChatMessage, getChatHistory, ChatMessage, generateProposalDocument, createProposal, clearChatHistory } from "@/lib/api";
 import { useState, useEffect } from "react";
 import ReactMarkdown from 'react-markdown';
+
+const ensureString = (val: any): string => {
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object' && val !== null) {
+    if (val.text) {
+      let str = String(val.text);
+      const extra = Object.entries(val)
+        .filter(([k, v]) => k !== 'text' && (typeof v === 'string' || typeof v === 'number' || Array.isArray(v)))
+        .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${Array.isArray(v) ? v.join(", ") : v}`)
+        .join(" | ");
+      if (extra) {
+        str += `\n\n(${extra})`;
+      }
+      return str;
+    }
+    return Object.entries(val)
+      .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+      .join("\n");
+  }
+  return String(val || '');
+};
 
 export default function WorkspacePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -96,11 +118,34 @@ export default function WorkspacePage() {
           const next = { ...prev };
           if (draftMatch && draftMatch[1]) {
             try {
-              const generated = JSON.parse(draftMatch[1]);
+               const generated = JSON.parse(draftMatch[1]);
               next.title = generated.title || next.title;
-              next.summary = generated.sections?.summary || generated.sections?.background || next.summary;
-              next.objectives = generated.sections?.objectives || next.objectives;
-              next.methodology = generated.sections?.methodology || next.methodology;
+              next.summary = ensureString(generated.sections?.summary || generated.sections?.background || next.summary);
+              let objectivesData = generated.sections?.objectives || next.objectives;
+              if (Array.isArray(objectivesData)) {
+                objectivesData = objectivesData.map((obj: any) => {
+                  if (typeof obj === 'object' && obj !== null) {
+                    const parts = [];
+                    if (obj.objective) parts.push(obj.objective);
+                    if (obj.milestone) parts.push(`Milestone: ${obj.milestone}`);
+                    if (obj.metric) parts.push(`Metric: ${obj.metric}`);
+                    return parts.length > 0 ? parts.join(" | ") : JSON.stringify(obj);
+                  }
+                  return String(obj);
+                });
+              } else if (typeof objectivesData === 'object' && objectivesData !== null) {
+                objectivesData = Object.entries(objectivesData)
+                  .map(([key, val]) => {
+                    const formattedKey = key.replace(/_/g, ' ').toUpperCase();
+                    if (Array.isArray(val)) {
+                      return `${formattedKey}:\n` + val.map(item => `  - ${typeof item === 'object' ? JSON.stringify(item) : item}`).join("\n");
+                    }
+                    return `${formattedKey}: ${typeof val === 'object' ? JSON.stringify(val) : val}`;
+                  })
+                  .join("\n\n");
+              }
+              next.objectives = objectivesData;
+              next.methodology = ensureString(generated.sections?.methodology || next.methodology);
             } catch(e) { console.error(e) }
           }
           if (budgetMatch && budgetMatch[1]) {
@@ -112,9 +157,10 @@ export default function WorkspacePage() {
           return next;
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to send message:", error);
-      setMessages(prev => [...prev, { role: "ai", content: "Sorry, I encountered an error communicating with the backend." }]);
+      const errMsg = error.message || "Sorry, I encountered an error communicating with the backend.";
+      setMessages(prev => [...prev, { role: "ai", content: errMsg }]);
     } finally {
       setIsLoading(false);
     }
@@ -126,16 +172,88 @@ export default function WorkspacePage() {
     try {
       const generated = await generateProposalDocument(PROJECT_ID);
 
+      let objectivesData: any = generated.sections?.objectives || "";
+      if (Array.isArray(objectivesData)) {
+        objectivesData = objectivesData.map((obj: any) => {
+          if (typeof obj === 'object' && obj !== null) {
+            const parts = [];
+            if (obj.objective) parts.push(obj.objective);
+            if (obj.milestone) parts.push(`Milestone: ${obj.milestone}`);
+            if (obj.metric) parts.push(`Metric: ${obj.metric}`);
+            return parts.length > 0 ? parts.join(" | ") : JSON.stringify(obj);
+          }
+          return String(obj);
+        });
+      } else if (typeof objectivesData === 'object' && objectivesData !== null) {
+        objectivesData = Object.entries(objectivesData)
+          .map(([key, val]) => {
+            const formattedKey = key.replace(/_/g, ' ').toUpperCase();
+            if (Array.isArray(val)) {
+              return `${formattedKey}:\n` + val.map(item => `  - ${typeof item === 'object' ? JSON.stringify(item) : item}`).join("\n");
+            }
+            return `${formattedKey}: ${typeof val === 'object' ? JSON.stringify(val) : val}`;
+          })
+          .join("\n\n");
+      }
+
       setProposal({
         title: generated.title || "Generated Proposal",
-        summary: generated.sections?.summary || "",
-        objectives: generated.sections?.objectives || "",
-        methodology: generated.sections?.methodology || "Unable to generate methodology"
+        summary: ensureString(generated.sections?.summary || ""),
+        objectives: objectivesData,
+        methodology: ensureString(generated.sections?.methodology || "Unable to generate methodology")
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate proposal:", error);
+      alert(error.message || "Failed to generate proposal.");
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleClear = () => {
+    setProposal({
+      title: "New Proposal",
+      summary: "",
+      objectives: "",
+      methodology: ""
+    });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await createProposal({
+        project_id: PROJECT_ID,
+        content: {
+          title: proposal.title,
+          summary: proposal.summary,
+          objectives: proposal.objectives,
+          methodology: proposal.methodology
+        }
+      });
+      alert("Proposal saved successfully!");
+    } catch (error) {
+      console.error("Failed to save proposal:", error);
+      alert("Failed to save proposal.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleClearMemory = async () => {
+    if (confirm("Are you sure you want to clear the agent's chat history/memory?")) {
+      try {
+        await clearChatHistory(PROJECT_ID);
+        setMessages([
+          { role: "ai", content: "Memory cleared. What new research topic or proposal shall we work on?" }
+        ]);
+        alert("Agent memory cleared!");
+      } catch (error) {
+        console.error("Failed to clear memory:", error);
+        alert("Failed to clear agent memory.");
+      }
     }
   };
 
@@ -165,7 +283,19 @@ export default function WorkspacePage() {
                   {isGenerating ? "Generating..." : "Generate Proposal"}
                 </button>
                 <div className="w-px h-4 bg-zinc-300 dark:bg-zinc-700 mx-1"></div>
-                <button className="p-2 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
+                <button
+                  onClick={handleClear}
+                  title="Clear Proposal"
+                  className="p-2 text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  title="Save Proposal"
+                  className="p-2 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors disabled:opacity-50"
+                >
                   <Save className="w-4 h-4" />
                 </button>
                 <button className="p-2 text-zinc-500 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
@@ -178,7 +308,12 @@ export default function WorkspacePage() {
             <div className="flex-1 overflow-y-auto p-8 lg:p-12">
               <div className="max-w-3xl mx-auto space-y-8">
                 <div>
-                  <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-4 focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <h1 
+                    className="text-3xl font-bold text-zinc-900 dark:text-zinc-50 mb-4 focus:outline-none" 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setProposal(prev => ({ ...prev, title: e.target.innerText }))}
+                  >
                     {proposal.title}
                   </h1>
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">Last edited by AI Agent • Just now</p>
@@ -186,14 +321,24 @@ export default function WorkspacePage() {
 
                 <section>
                   <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-3">1. Background & Significance</h2>
-                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <p 
+                    className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setProposal(prev => ({ ...prev, summary: e.target.innerText }))}
+                  >
                     {proposal.summary}
                   </p>
                 </section>
 
                 <section>
                   <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-3">2. Objectives</h2>
-                  <div className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <div 
+                    className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setProposal(prev => ({ ...prev, objectives: e.target.innerText }))}
+                  >
                     {Array.isArray(proposal.objectives) ? (
                       <ul className="list-disc list-inside space-y-2">
                         {proposal.objectives.map((obj, i) => <li key={i}>{obj}</li>)}
@@ -206,7 +351,12 @@ export default function WorkspacePage() {
 
                 <section>
                   <h2 className="text-xl font-semibold text-zinc-800 dark:text-zinc-200 mb-3">3. Methodology</h2>
-                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" contentEditable suppressContentEditableWarning>
+                  <p 
+                    className="text-zinc-700 dark:text-zinc-300 leading-relaxed text-lg focus:outline-none" 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    onBlur={(e) => setProposal(prev => ({ ...prev, methodology: e.target.innerText }))}
+                  >
                     {proposal.methodology}
                   </p>
                 </section>
@@ -252,11 +402,18 @@ export default function WorkspacePage() {
           {/* Right Pane: AI Chat Interface */}
           <div className="w-full lg:w-96 xl:w-[400px] flex flex-col bg-zinc-50 dark:bg-zinc-900 border-t lg:border-t-0 lg:border-l border-zinc-200 dark:border-zinc-800 shrink-0 h-1/2 lg:h-auto">
             {/* Chat Header */}
-            <div className="h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 bg-white dark:bg-zinc-950 shrink-0">
+            <div className="h-14 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-4 bg-white dark:bg-zinc-950 shrink-0">
               <div className="flex items-center gap-2 font-semibold text-zinc-900 dark:text-zinc-50">
                 <Sparkles className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 LangGraph Agents
               </div>
+              <button
+                onClick={handleClearMemory}
+                title="Clear Agent Memory"
+                className="text-xs text-zinc-500 hover:text-red-600 dark:hover:text-red-400 px-2 py-1 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors border border-zinc-200 dark:border-zinc-800"
+              >
+                Clear Memory
+              </button>
             </div>
 
             {/* Messages Area */}
